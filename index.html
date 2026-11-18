@@ -845,27 +845,95 @@
       transform: translateX(-50%) translateY(0);
     }
 
-    /* Responsive Layout for Mobile Devices */
+    /* Responsive Layout for Mobile Devices (Android & Small Screens) */
     @media (max-width: 768px) {
-      body { padding: 12px 10px; }
-      .theyyam-bg-art { width: 90vw; opacity: 0.14; background-position: top 10px right -80px; }
+      body { padding: 10px 8px; }
+      .container { gap: 14px; }
+      .theyyam-bg-art { width: 95vw; opacity: 0.12; background-position: top 10px right -80px; }
+      
+      header {
+        padding: 12px 14px;
+        gap: 12px;
+      }
+      .brand { gap: 10px; }
+      .ornament-logo { width: 38px; height: 38px; }
+      .ornament-logo svg { width: 20px; height: 20px; }
+      .header-titles h1 { font-size: 17px; letter-spacing: 1px; }
+      .header-titles .sub-text { font-size: 11px; }
+      .heritage-tag { display: none; }
+      .header-right { width: 100%; justify-content: space-between; gap: 8px; }
+      .status-badge { font-size: 10px; padding: 5px 9px; }
+      .btn-excel, .btn-csv-light { flex: 1; justify-content: center; font-size: 12px; padding: 6px 10px; }
+      
+      .hero-balance-card { padding: 16px; border-radius: 14px; }
+      .hero-amount { font-size: 27px; }
+      .hero-badge { padding: 6px 10px; font-size: 11px; }
+      
       .breakdown-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        gap: 8px;
       }
-      .hero-amount { font-size: 26px; }
+      .metric-card { padding: 12px; border-radius: 12px; }
+      .metric-card h4 { font-size: 10px; }
+      .metric-value { font-size: 18px; }
+
+      .card { padding: 16px 14px; border-radius: 14px; }
+      .card-header h2 { font-size: 15px; }
+
       .form-grid {
         grid-template-columns: 1fr;
         gap: 12px;
       }
-      .table-responsive { display: none; }
-      .mobile-cards { display: flex; }
-      .header-right { width: 100%; justify-content: space-between; }
-      .btn-excel, .btn-csv-light { flex: 1; justify-content: center; }
+      /* Prevent mobile browsers from zooming in when focusing inputs */
+      input[type="text"], select.custom-select {
+        font-size: 16px !important;
+        height: 50px;
+      }
+      .mode-toggle { height: 50px; }
+      .mode-btn { font-size: 14px; }
+
+      .button-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .btn-add {
+        grid-column: span 2;
+        height: 50px;
+        font-size: 15px;
+      }
+      .btn-voice {
+        height: 48px;
+        font-size: 13px;
+      }
+      .btn-clear {
+        height: 48px;
+        font-size: 13px;
+      }
+
+      .table-top-bar { gap: 10px; }
       .search-box { width: 100%; }
+      .search-input { height: 44px; font-size: 14px; }
+      
+      .table-responsive { display: none; }
+      .mobile-cards { display: flex; gap: 10px; }
+      .receipt-card-mobile {
+        padding: 12px 14px;
+        border-radius: 12px;
+      }
+      .mobile-name { font-size: 15px; }
+      .mobile-amount { font-size: 17px; }
     }
+
     @media (max-width: 480px) {
-      .breakdown-grid { grid-template-columns: 1fr; }
+      .breakdown-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+      .hero-info h3 { font-size: 11px; }
+      .hero-amount { font-size: 24px; }
+      .hero-sub { font-size: 11.5px; }
     }
   </style>
 </head>
@@ -1099,11 +1167,16 @@
 
     async function loadInfo() {
       try {
-        const res = await fetch('/api/info');
-        if (!res.ok) return;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch('/api/info', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) return;
         const info = await res.json();
         if (info.ips && info.ips.length > 0) {
-          androidIpUrl = `http://${info.ips[0]}:${info.port}`;
+          let bestIp = info.ips.find(ip => !ip.startsWith('192.168.6.') && !ip.startsWith('192.168.73.')) || info.ips[0];
+          androidIpUrl = `http://${bestIp}:${info.port}`;
           document.getElementById('androidUrl').textContent = androidIpUrl;
           document.getElementById('androidBanner').style.display = 'flex';
         }
@@ -1119,15 +1192,21 @@
     async function loadReceipts() {
       // 1. Try connecting to local Java backend
       try {
-        const res = await fetch('/api/receipts', { cache: 'no-store' });
-        if (res.ok) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const res = await fetch('/api/receipts', { cache: 'no-store', signal: controller.signal });
+        clearTimeout(timeoutId);
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
-          receiptsData = data.receipts || [];
-          isBackendAvailable = true;
-          document.getElementById('storageIndicator').textContent = 'Synchronized with Excel';
-          updateDashboard(data.totals);
-          renderReceipts();
-          return;
+          if (data && Array.isArray(data.receipts)) {
+            receiptsData = data.receipts;
+            isBackendAvailable = true;
+            document.getElementById('storageIndicator').textContent = 'Synchronized with Excel';
+            updateDashboard(data.totals);
+            renderReceipts();
+            return;
+          }
         }
       } catch (e) {
         // Backend not reachable -> Static host (Vercel)
@@ -1135,7 +1214,7 @@
 
       // 2. Static Host Mode (Vercel / GitHub Pages)
       isBackendAvailable = false;
-      document.getElementById('storageIndicator').textContent = 'Cloud / Local Storage Active';
+      document.getElementById('storageIndicator').textContent = 'Cloud / Mobile Storage Active';
       loadFromLocalStorage();
     }
 
@@ -1229,7 +1308,10 @@
             ? `<span class="badge badge-online">Online</span>`
             : `<span class="badge badge-hand">By Hand</span>`;
 
-          const amountFormatted = isWithdrawal ? `-₹ ${Math.abs(r.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}` : `+₹ ${Math.abs(r.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;\n          const amountClass = isWithdrawal ? 'td-num negative' : 'td-num positive';
+          const amountFormatted = isWithdrawal
+            ? `-₹ ${Math.abs(r.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}`
+            : `+₹ ${Math.abs(r.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+          const amountClass = isWithdrawal ? 'td-num negative' : 'td-num positive';
 
           // Desktop Table Row
           const tr = document.createElement('tr');

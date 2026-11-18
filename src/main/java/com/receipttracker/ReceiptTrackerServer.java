@@ -87,22 +87,34 @@ public class ReceiptTrackerServer {
     }
 
     public static List<String> getLocalIpAddresses() {
-        List<String> ips = new ArrayList<>();
+        List<String> preferredIps = new ArrayList<>();
+        List<String> fallbackIps = new ArrayList<>();
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements()) {
                 NetworkInterface iface = interfaces.nextElement();
                 if (iface.isLoopback() || !iface.isUp()) continue;
+                String dName = (iface.getDisplayName() + " " + iface.getName()).toLowerCase();
+                boolean isVirtual = dName.contains("vmware") || dName.contains("virtual") ||
+                        dName.contains("vethernet") || dName.contains("hyper-v") ||
+                        dName.contains("wsl") || dName.contains("box");
+
                 Enumeration<InetAddress> addrs = iface.getInetAddresses();
                 while (addrs.hasMoreElements()) {
                     InetAddress addr = addrs.nextElement();
                     if (addr instanceof Inet4Address && !addr.isLoopbackAddress() && !addr.isLinkLocalAddress()) {
-                        ips.add(addr.getHostAddress());
+                        String ip = addr.getHostAddress();
+                        if (isVirtual || ip.startsWith("192.168.6.") || ip.startsWith("192.168.73.")) {
+                            fallbackIps.add(ip);
+                        } else {
+                            preferredIps.add(ip);
+                        }
                     }
                 }
             }
         } catch (Exception ignored) {}
-        return ips;
+        preferredIps.addAll(fallbackIps);
+        return preferredIps;
     }
 
     // ==========================================================
