@@ -1,0 +1,5 @@
+target/
+*.tmp
+*_backup_*.xlsx
+.DS_Store
+Thumbs.db

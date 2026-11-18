@@ -1,0 +1,19 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Receipt Tracker",
+            "type": "shell",
+            "command": "cmd.exe",
+            "args": [
+                "/c",
+                "${workspaceFolder}\\run.bat"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
