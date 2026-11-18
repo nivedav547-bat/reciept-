@@ -16,7 +16,7 @@ import java.util.List;
 public class ExcelManager {
     public static final String DEFAULT_FILE_NAME = "receipts.xlsx";
     public static final String SHEET_NAME = "Receipts";
-    public static final String[] HEADERS = {"Name", "Amount", "Transaction Type", "Payment Mode"};
+    public static final String[] HEADERS = {"Date", "Name", "Amount", "Transaction Type", "Payment Mode"};
 
     private final Path filePath;
 
@@ -177,6 +177,7 @@ public class ExcelManager {
 
             // Detect column indices from header row
             Row headerRow = sheet.getRow(0);
+            int dateCol = -1;
             int nameCol = 0;
             int amountCol = 1;
             int typeCol = 2;
@@ -186,7 +187,8 @@ public class ExcelManager {
                 int cellCount = headerRow.getLastCellNum();
                 for (int c = 0; c < cellCount; c++) {
                     String h = getCellStringValue(headerRow.getCell(c)).toLowerCase();
-                    if (h.contains("name")) nameCol = c;
+                    if (h.contains("date")) dateCol = c;
+                    else if (h.contains("name")) nameCol = c;
                     else if (h.contains("amount")) amountCol = c;
                     else if (h.contains("type")) typeCol = c;
                     else if (h.contains("mode")) modeCol = c;
@@ -197,6 +199,7 @@ public class ExcelManager {
                 Row row = sheet.getRow(r);
                 if (row == null) continue;
 
+                String dateVal = (dateCol >= 0) ? getCellStringValue(row.getCell(dateCol)) : "";
                 String name = getCellStringValue(row.getCell(nameCol));
                 Double amount = getCellNumericValue(row.getCell(amountCol));
                 String type = (typeCol >= 0) ? getCellStringValue(row.getCell(typeCol)) : "";
@@ -222,7 +225,7 @@ public class ExcelManager {
 
                 if (mode.isEmpty()) mode = Receipt.MODE_BY_HAND;
 
-                list.add(new Receipt(name, signedAmount, type, mode));
+                list.add(new Receipt(name, signedAmount, type, mode, "", dateVal));
             }
         } catch (IOException e) {
             if (isFileLockedException(e)) {
@@ -259,12 +262,16 @@ public class ExcelManager {
 
             Row row = sheet.createRow(nextRow);
 
-            // Name (Column 0)
-            Cell cellName = row.createCell(0);
+            // Date (Column 0)
+            Cell cellDate = row.createCell(0);
+            cellDate.setCellValue(receipt.getDate());
+
+            // Name (Column 1)
+            Cell cellName = row.createCell(1);
             cellName.setCellValue(receipt.getName());
 
-            // Amount (Column 1 - Numeric signed value)
-            Cell cellAmount = row.createCell(1);
+            // Amount (Column 2 - Numeric signed value)
+            Cell cellAmount = row.createCell(2);
             double numericAmount = receipt.isWithdrawn() ? -Math.abs(receipt.getAmount()) : Math.abs(receipt.getAmount());
             cellAmount.setCellValue(numericAmount);
 
@@ -273,12 +280,12 @@ public class ExcelManager {
             amountStyle.setDataFormat(dataFormat.getFormat("#,##0.00;[Red]-#,##0.00"));
             cellAmount.setCellStyle(amountStyle);
 
-            // Transaction Type (Column 2)
-            Cell cellType = row.createCell(2);
+            // Transaction Type (Column 3)
+            Cell cellType = row.createCell(3);
             cellType.setCellValue(receipt.getTransactionType());
 
-            // Payment Mode (Column 3)
-            Cell cellMode = row.createCell(3);
+            // Payment Mode (Column 4)
+            Cell cellMode = row.createCell(4);
             cellMode.setCellValue(receipt.getPaymentMode());
 
             autoSizeColumns(sheet);
@@ -287,36 +294,23 @@ public class ExcelManager {
     }
 
     /**
+     * Clears all transactions and leaves only the fresh header row.
+     */
+    public synchronized void clearAllReceipts() throws IOException {
+        saveAllReceipts(new ArrayList<>());
+    }
+
+    /**
      * Deletes a transaction at the given 0-based data index.
+     * Rewrites file cleanly so no deleted or phantom records remain.
      */
     public synchronized void deleteReceipt(int dataIndex) throws IOException {
-        initializeFile();
-
-        try (InputStream is = Files.newInputStream(filePath);
-             Workbook workbook = new XSSFWorkbook(is)) {
-
-            Sheet sheet = workbook.getSheet(SHEET_NAME);
-            if (sheet == null) return;
-
-            int excelRowIndex = dataIndex + 1;
-            int lastRowNum = sheet.getLastRowNum();
-
-            if (excelRowIndex < 1 || excelRowIndex > lastRowNum) {
-                throw new IndexOutOfBoundsException("Invalid transaction index: " + dataIndex);
-            }
-
-            Row removingRow = sheet.getRow(excelRowIndex);
-            if (removingRow != null) {
-                sheet.removeRow(removingRow);
-            }
-
-            if (excelRowIndex < lastRowNum) {
-                sheet.shiftRows(excelRowIndex + 1, lastRowNum, -1);
-            }
-
-            autoSizeColumns(sheet);
-            saveWorkbookSafely(workbook);
+        List<Receipt> receipts = loadReceipts();
+        if (dataIndex < 0 || dataIndex >= receipts.size()) {
+            throw new IndexOutOfBoundsException("Invalid transaction index: " + dataIndex);
         }
+        receipts.remove(dataIndex);
+        saveAllReceipts(receipts);
     }
 
     /**
@@ -335,15 +329,16 @@ public class ExcelManager {
             int rowIdx = 1;
             for (Receipt receipt : receipts) {
                 Row row = sheet.createRow(rowIdx++);
-                row.createCell(0).setCellValue(receipt.getName());
+                row.createCell(0).setCellValue(receipt.getDate());
+                row.createCell(1).setCellValue(receipt.getName());
 
-                Cell cellAmount = row.createCell(1);
+                Cell cellAmount = row.createCell(2);
                 double numericVal = receipt.isWithdrawn() ? -Math.abs(receipt.getAmount()) : Math.abs(receipt.getAmount());
                 cellAmount.setCellValue(numericVal);
                 cellAmount.setCellStyle(amountStyle);
 
-                row.createCell(2).setCellValue(receipt.getTransactionType());
-                row.createCell(3).setCellValue(receipt.getPaymentMode());
+                row.createCell(3).setCellValue(receipt.getTransactionType());
+                row.createCell(4).setCellValue(receipt.getPaymentMode());
             }
 
             autoSizeColumns(sheet);

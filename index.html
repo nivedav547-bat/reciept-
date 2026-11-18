@@ -421,8 +421,8 @@
     /* Transaction Entry Form Grid */
     .form-grid {
       display: grid;
-      grid-template-columns: 1.5fr 1.2fr 1.1fr 1.2fr;
-      gap: 14px;
+      grid-template-columns: 1.1fr 1.6fr 1.2fr 1.1fr 1.3fr;
+      gap: 12px;
       align-items: end;
     }
     .form-group {
@@ -458,7 +458,7 @@
       font-size: 17px;
       pointer-events: none;
     }
-    input[type="text"], select.custom-select {
+    input[type="text"], input[type="date"], select.custom-select {
       width: 100%;
       height: 48px;
       padding: 10px 14px;
@@ -468,6 +468,14 @@
       border: 1.5px solid rgba(212, 175, 98, 0.22);
       border-radius: 10px;
       outline: none;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      color-scheme: dark;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(0.8) sepia(50%) saturate(400%) hue-rotate(5deg);
+      cursor: pointer;
+    }
       transition: all 0.2s ease;
       font-family: inherit;
     }
@@ -885,7 +893,7 @@
         gap: 12px;
       }
       /* Prevent mobile browsers from zooming in when focusing inputs */
-      input[type="text"], select.custom-select {
+      input[type="text"], input[type="date"], select.custom-select {
         font-size: 16px !important;
         height: 50px;
       }
@@ -1024,12 +1032,17 @@
       </div>
       <form id="transactionForm" onsubmit="event.preventDefault(); addTransaction();">
         <div class="form-grid">
-          <!-- 1. Name -->
+          <!-- 1. Date -->
+          <div class="form-group">
+            <label for="txtDate">Date</label>
+            <input type="date" id="txtDate" class="custom-date-input" required />
+          </div>
+          <!-- 2. Name -->
           <div class="form-group">
             <label for="txtName">Name</label>
-            <input type="text" id="txtName" placeholder="Enter name or expense description" autofocus autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next" required />
+            <input type="text" id="txtName" placeholder="Enter name or description" autofocus autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next" required />
           </div>
-          <!-- 2. Transaction Type Dropdown -->
+          <!-- 3. Transaction Type Dropdown -->
           <div class="form-group">
             <label for="selTransactionType">Transaction Type</label>
             <select id="selTransactionType" class="custom-select">
@@ -1037,7 +1050,7 @@
               <option value="Withdrawn">Amount Withdrawn</option>
             </select>
           </div>
-          <!-- 3. Amount -->
+          <!-- 4. Amount -->
           <div class="form-group">
             <label for="txtAmount">Amount</label>
             <div class="input-wrapper">
@@ -1045,7 +1058,7 @@
               <input type="text" id="txtAmount" class="amount-input" placeholder="Enter amount" inputmode="decimal" pattern="[0-9.]*" autocomplete="off" enterkeyhint="done" required />
             </div>
           </div>
-          <!-- 4. Payment Mode -->
+          <!-- 5. Payment Mode -->
           <div class="form-group">
             <label>Payment Mode <span class="hint">(← / → keys)</span></label>
             <div class="mode-toggle">
@@ -1075,11 +1088,14 @@
       <div class="table-top-bar">
         <div class="card-header" style="margin-bottom:0;">
           <h2>TRANSACTION HISTORY (<span id="receiptCount">0</span>)</h2>
-          <div class="card-subtitle">All recorded collections and withdrawals</div>
+          <div class="card-subtitle">Active transactions recorded today or saved</div>
         </div>
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="txtSearch" class="search-input" placeholder="Search receipts by name..." oninput="renderReceipts()" />
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="txtSearch" class="search-input" placeholder="Search by name..." oninput="renderReceipts()" />
+          </div>
+          <button class="btn-clear" style="height: 42px; padding: 0 12px; font-size: 12px; border-color: rgba(140, 36, 31, 0.45); color: #fca5a5;" onclick="clearAllData()" title="Reset and clear all saved transactions">🗑️ Reset All</button>
         </div>
       </div>
 
@@ -1088,7 +1104,8 @@
         <table>
           <thead>
             <tr>
-              <th style="width: 45px;">#</th>
+              <th style="width: 40px;">#</th>
+              <th style="width: 110px;">Date</th>
               <th>Name</th>
               <th style="width: 140px; text-align: right;">Amount</th>
               <th style="width: 140px; text-align: center;">Transaction Type</th>
@@ -1116,15 +1133,8 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    // Initial 6 historical records
-    const DEFAULT_INITIAL_RECORDS = [
-      { index: 0, name: "nived", amount: 2000.0, displayAmount: 2000.0, transactionType: "Received", paymentMode: "By Hand" },
-      { index: 1, name: "sumalatha", amount: 5000.0, displayAmount: 5000.0, transactionType: "Received", paymentMode: "Online" },
-      { index: 2, name: "mahini", amount: 120.0, displayAmount: 120.0, transactionType: "Received", paymentMode: "Online" },
-      { index: 3, name: "venu", amount: 2000.0, displayAmount: 2000.0, transactionType: "Received", paymentMode: "Online" },
-      { index: 4, name: "mohanan", amount: 1000.0, displayAmount: 1000.0, transactionType: "Received", paymentMode: "By Hand" },
-      { index: 5, name: "mohanan", amount: 2333.0, displayAmount: 2333.0, transactionType: "Received", paymentMode: "By Hand" }
-    ];
+    // Empty initial records: only current entered or saved data is tracked
+    const DEFAULT_INITIAL_RECORDS = [];
 
     let currentMode = 'By Hand';
     let receiptsData = [];
@@ -1132,6 +1142,26 @@
     let recognition = null;
     let isListening = false;
     let isBackendAvailable = false;
+
+    function getTodayIso() {
+      const d = new Date();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${d.getFullYear()}-${month}-${day}`;
+    }
+
+    function formatDisplayDate(isoStr) {
+      if (!isoStr) return getTodayIso();
+      try {
+        const parts = isoStr.split('-');
+        if (parts.length === 3) {
+          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          const mIdx = parseInt(parts[1], 10) - 1;
+          return `${parts[2]} ${months[mIdx] || parts[1]} ${parts[0]}`;
+        }
+      } catch (e) {}
+      return isoStr;
+    }
 
     function setMode(mode) {
       currentMode = mode;
@@ -1219,15 +1249,17 @@
     }
 
     function loadFromLocalStorage() {
-      const stored = localStorage.getItem('receipt_tracker_data_v2');
+      // Clear out old dummy records from prior versions
+      localStorage.removeItem('receipt_tracker_data_v2');
+      const stored = localStorage.getItem('receipt_tracker_data_v3');
       if (stored) {
         try {
           receiptsData = JSON.parse(stored);
         } catch (e) {
-          receiptsData = [...DEFAULT_INITIAL_RECORDS];
+          receiptsData = [];
         }
       } else {
-        receiptsData = [...DEFAULT_INITIAL_RECORDS];
+        receiptsData = [];
         saveToLocalStorage();
       }
       updateDashboardFromData();
@@ -1235,7 +1267,7 @@
     }
 
     function saveToLocalStorage() {
-      localStorage.setItem('receipt_tracker_data_v2', JSON.stringify(receiptsData));
+      localStorage.setItem('receipt_tracker_data_v3', JSON.stringify(receiptsData));
     }
 
     function updateDashboardFromData() {
@@ -1299,6 +1331,7 @@
         filtered.forEach((r, idx) => {
           const isWithdrawal = (r.transactionType && r.transactionType.toLowerCase() === 'withdrawn') || r.amount < 0;
           const isOnline = r.paymentMode && r.paymentMode.toLowerCase() === 'online';
+          const recDate = r.date || getTodayIso();
           
           const typeBadge = isWithdrawal
             ? `<span class="badge badge-withdrawn">Withdrawn</span>`
@@ -1317,6 +1350,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td style="color: var(--text-muted); font-size: 12px;">${idx + 1}</td>
+            <td style="color: var(--gold-bright); font-size: 12.5px; font-weight: 500;">${escapeHtml(recDate)}</td>
             <td style="font-weight: 600;">${escapeHtml(r.name)}</td>
             <td class="${amountClass}">${amountFormatted}</td>
             <td class="td-center">${typeBadge}</td>
@@ -1332,6 +1366,7 @@
           card.className = 'receipt-card-mobile';
           card.innerHTML = `
             <div class="mobile-info">
+              <div class="mobile-date">📅 ${escapeHtml(formatDisplayDate(recDate))}</div>
               <div class="mobile-name">${escapeHtml(r.name)}</div>
               <div class="mobile-amount ${isWithdrawal ? 'negative' : 'positive'}">${amountFormatted}</div>
               <div class="mobile-badges">${typeBadge} ${modeBadge}</div>
@@ -1346,14 +1381,16 @@
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     async function addTransaction() {
+      const txtDate = document.getElementById('txtDate');
       const txtName = document.getElementById('txtName');
       const txtAmount = document.getElementById('txtAmount');
       const selType = document.getElementById('selTransactionType');
       
+      const dateVal = txtDate.value || getTodayIso();
       const name = txtName.value.trim();
       const amountRaw = txtAmount.value.replace(/₹|,|-/g, '').trim();
       const transactionType = selType.value;
@@ -1375,7 +1412,7 @@
           const res = await fetch('/api/receipts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, amount, transactionType, paymentMode: currentMode })
+            body: JSON.stringify({ date: dateVal, name, amount, transactionType, paymentMode: currentMode })
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Failed to record transaction');
@@ -1393,6 +1430,7 @@
         const signedAmt = isWithdrawal ? -Math.abs(amount) : Math.abs(amount);
         const newRecord = {
           index: receiptsData.length,
+          date: dateVal,
           name: name,
           amount: signedAmt,
           displayAmount: Math.abs(amount),
@@ -1408,6 +1446,7 @@
       txtName.value = '';
       txtAmount.value = '';
       selType.value = 'Received';
+      txtDate.value = getTodayIso();
       txtName.focus();
       showToast('✓ Transaction recorded successfully!');
     }
@@ -1424,7 +1463,7 @@
           receiptsData = data.receipts || [];
           updateDashboard(data.totals);
           renderReceipts();
-          showToast('Transaction record deleted.');
+          showToast('Transaction record permanently deleted.');
         } catch (err) {
           showToast(err.message, true);
         }
@@ -1437,8 +1476,31 @@
           saveToLocalStorage();
           updateDashboardFromData();
           renderReceipts();
-          showToast('Transaction record deleted.');
+          showToast('Transaction record permanently deleted.');
         }
+      }
+    }
+
+    async function clearAllData() {
+      if (!confirm('Are you sure you want to reset and clear all transactions? This cannot be undone.')) return;
+
+      if (isBackendAvailable) {
+        try {
+          const res = await fetch('/api/receipts?clearAll=true', { method: 'DELETE' });
+          const data = await res.json();
+          receiptsData = data.receipts || [];
+          updateDashboard(data.totals);
+          renderReceipts();
+          showToast('All transactions cleared.');
+        } catch (err) {
+          showToast('Failed to clear: ' + err.message, true);
+        }
+      } else {
+        receiptsData = [];
+        saveToLocalStorage();
+        updateDashboardFromData();
+        renderReceipts();
+        showToast('All transactions cleared.');
       }
     }
 
@@ -1451,10 +1513,10 @@
       // Vercel / Static mode: generate real .xlsx directly using SheetJS
       if (typeof XLSX !== 'undefined') {
         const wsData = [
-          ["Name", "Amount", "Transaction Type", "Payment Mode"]
+          ["Date", "Name", "Amount", "Transaction Type", "Payment Mode"]
         ];
         receiptsData.forEach(r => {
-          wsData.push([r.name, r.amount, r.transactionType, r.paymentMode]);
+          wsData.push([r.date || getTodayIso(), r.name, r.amount, r.transactionType, r.paymentMode]);
         });
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -1471,10 +1533,10 @@
         showToast('No transactions to export.', true);
         return;
       }
-      let csv = 'Name,Amount,Transaction Type,Payment Mode\n';
+      let csv = 'Date,Name,Amount,Transaction Type,Payment Mode\n';
       receiptsData.forEach(r => {
         const escapedName = '"' + r.name.replace(/"/g, '""') + '"';
-        csv += `${escapedName},${r.amount},${r.transactionType},${r.paymentMode}\n`;
+        csv += `${r.date || getTodayIso()},${escapedName},${r.amount},${r.transactionType},${r.paymentMode}\n`;
       });
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -1490,6 +1552,7 @@
       document.getElementById('txtName').value = '';
       document.getElementById('txtAmount').value = '';
       document.getElementById('selTransactionType').value = 'Received';
+      document.getElementById('txtDate').value = getTodayIso();
       document.getElementById('txtName').focus();
     }
 
@@ -1651,6 +1714,8 @@
     }
 
     // Initial Load
+    const dateInput = document.getElementById('txtDate');
+    if (dateInput) dateInput.value = getTodayIso();
     loadReceipts();
     loadInfo();
   </script>

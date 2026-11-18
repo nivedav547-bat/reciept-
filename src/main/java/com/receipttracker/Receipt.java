@@ -20,21 +20,27 @@ public class Receipt {
     private String transactionType;
     private String paymentMode;
     private String description;
+    private String date;
 
     public Receipt(String name, double amount, String paymentMode) {
-        this(name, amount, amount < 0 ? TYPE_WITHDRAWN : TYPE_RECEIVED, paymentMode, "");
+        this(name, amount, amount < 0 ? TYPE_WITHDRAWN : TYPE_RECEIVED, paymentMode, "", null);
     }
 
     public Receipt(String name, double amount, String transactionType, String paymentMode) {
-        this(name, amount, transactionType, paymentMode, "");
+        this(name, amount, transactionType, paymentMode, "", null);
     }
 
     public Receipt(String name, double amount, String transactionType, String paymentMode, String description) {
+        this(name, amount, transactionType, paymentMode, description, null);
+    }
+
+    public Receipt(String name, double amount, String transactionType, String paymentMode, String description, String date) {
         this.name = name != null ? name.trim() : "";
         this.transactionType = normalizeType(transactionType, amount);
         this.amount = normalizeSignedAmount(amount, this.transactionType);
         this.paymentMode = normalizeMode(paymentMode);
         this.description = description != null ? description.trim() : "";
+        this.date = (date != null && !date.trim().isEmpty()) ? date.trim() : java.time.LocalDate.now().toString();
     }
 
     private static String normalizeType(String type, double amount) {
@@ -117,6 +123,17 @@ public class Receipt {
 
     public void setDescription(String description) {
         this.description = description != null ? description.trim() : "";
+    }
+
+    public String getDate() {
+        if (date == null || date.trim().isEmpty()) {
+            return java.time.LocalDate.now().toString();
+        }
+        return date;
+    }
+
+    public void setDate(String date) {
+        this.date = date != null ? date.trim() : "";
     }
 
     public boolean isReceived() {

@@ -317,6 +317,7 @@ public class ReceiptTrackerServer {
             String amountStr = extractJsonField(body, "amount");
             String transactionType = extractJsonField(body, "transactionType");
             String paymentMode = extractJsonField(body, "paymentMode");
+            String date = extractJsonField(body, "date");
 
             if (name == null || name.trim().isEmpty()) {
                 sendResponse(exchange, 400, "application/json", "{\"error\":\"Name or expense description is required\"}");
@@ -354,7 +355,7 @@ public class ReceiptTrackerServer {
                 finalMode = Receipt.MODE_ONLINE;
             }
 
-            Receipt receipt = new Receipt(name.trim(), signedAmount, finalType, finalMode);
+            Receipt receipt = new Receipt(name.trim(), signedAmount, finalType, finalMode, "", date);
             excelManager.addReceipt(receipt);
 
             List<Receipt> updatedList = excelManager.loadReceipts();
@@ -364,6 +365,14 @@ public class ReceiptTrackerServer {
 
         private void handleDeleteReceipt(HttpExchange exchange) throws IOException {
             String query = exchange.getRequestURI().getQuery();
+            if (query != null && query.contains("clearAll=true")) {
+                excelManager.clearAllReceipts();
+                List<Receipt> updatedList = excelManager.loadReceipts();
+                String json = buildReceiptsJson(updatedList);
+                sendResponse(exchange, 200, "application/json", json);
+                return;
+            }
+
             int index = -1;
             if (query != null) {
                 for (String param : query.split("&")) {
@@ -489,6 +498,7 @@ public class ReceiptTrackerServer {
             if (i > 0) items.append(",");
             items.append("{")
                     .append("\"index\":").append(i).append(",")
+                    .append("\"date\":").append(quoteJson(r.getDate())).append(",")
                     .append("\"name\":").append(quoteJson(r.getName())).append(",")
                     .append("\"amount\":").append(amt).append(",")
                     .append("\"displayAmount\":").append(Math.abs(amt)).append(",")
