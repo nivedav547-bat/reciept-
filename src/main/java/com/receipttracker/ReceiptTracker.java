@@ -1,6 +1,6 @@
 package com.receipttracker;
 
-import com.formdev.flatlaf.FlatLightLaf;
+import flatlaf.FlatLightLaf;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -235,7 +235,8 @@ public class ReceiptTracker extends JFrame {
                     cmbPaymentMode.setSelectedItem(Receipt.MODE_BY_HAND);
                     setStatus("Payment Mode: By Hand (←)");
                 } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-                    if (e.getSource() == txtName && txtName.getText().length() > 0 && txtName.getCaretPosition() < txtName.getText().length()) {
+                    if (e.getSource() == txtName && txtName.getText().length() > 0
+                            && txtName.getCaretPosition() < txtName.getText().length()) {
                         return;
                     }
                     cmbPaymentMode.setSelectedItem(Receipt.MODE_ONLINE);
@@ -298,7 +299,8 @@ public class ReceiptTracker extends JFrame {
 
             @Override
             public Class<?> getColumnClass(int columnIndex) {
-                if (columnIndex == 1) return Double.class;
+                if (columnIndex == 1)
+                    return Double.class;
                 return String.class;
             }
         };
@@ -324,10 +326,12 @@ public class ReceiptTracker extends JFrame {
                     double num = ((Number) value).doubleValue();
                     if (num < 0) {
                         setText("-₹ " + AMOUNT_FORMAT.format(Math.abs(num)));
-                        if (!isSelected) setForeground(new Color(195, 30, 30));
+                        if (!isSelected)
+                            setForeground(new Color(195, 30, 30));
                     } else {
                         setText("+₹ " + AMOUNT_FORMAT.format(num));
-                        if (!isSelected) setForeground(new Color(24, 134, 75));
+                        if (!isSelected)
+                            setForeground(new Color(24, 134, 75));
                     }
                 }
                 setHorizontalAlignment(SwingConstants.RIGHT);
@@ -441,7 +445,8 @@ public class ReceiptTracker extends JFrame {
 
             for (Receipt r : loaded) {
                 receiptsList.add(r);
-                tableModel.addRow(new Object[] { r.getName(), r.getAmount(), r.getTransactionType(), r.getPaymentMode() });
+                tableModel.addRow(
+                        new Object[] { r.getName(), r.getAmount(), r.getTransactionType(), r.getPaymentMode() });
             }
 
             recalculateTotals();
@@ -497,7 +502,8 @@ public class ReceiptTracker extends JFrame {
         String finalType = isWithdrawal ? Receipt.TYPE_WITHDRAWN : Receipt.TYPE_RECEIVED;
         double signedAmount = isWithdrawal ? -Math.abs(enteredAmount) : Math.abs(enteredAmount);
 
-        if (paymentMode == null || (!paymentMode.equals(Receipt.MODE_BY_HAND) && !paymentMode.equals(Receipt.MODE_ONLINE))) {
+        if (paymentMode == null
+                || (!paymentMode.equals(Receipt.MODE_BY_HAND) && !paymentMode.equals(Receipt.MODE_ONLINE))) {
             paymentMode = Receipt.MODE_BY_HAND;
         }
 
@@ -516,7 +522,8 @@ public class ReceiptTracker extends JFrame {
         }
 
         receiptsList.add(newReceipt);
-        tableModel.addRow(new Object[] { newReceipt.getName(), newReceipt.getAmount(), newReceipt.getTransactionType(), newReceipt.getPaymentMode() });
+        tableModel.addRow(new Object[] { newReceipt.getName(), newReceipt.getAmount(), newReceipt.getTransactionType(),
+                newReceipt.getPaymentMode() });
 
         recalculateTotals();
 
@@ -547,7 +554,8 @@ public class ReceiptTracker extends JFrame {
                 this,
                 String.format(
                         "Are you sure you want to delete this record?\n\nName: %s\nAmount: ₹%.2f\nType: %s\nMode: %s",
-                        target.getName(), Math.abs(target.getAmount()), target.getTransactionType(), target.getPaymentMode()),
+                        target.getName(), Math.abs(target.getAmount()), target.getTransactionType(),
+                        target.getPaymentMode()),
                 "Confirm Delete",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE);
@@ -652,7 +660,8 @@ public class ReceiptTracker extends JFrame {
     public static void main(String[] args) {
         try {
             FlatLightLaf.setup();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         SwingUtilities.invokeLater(() -> {
             ReceiptTracker tracker = new ReceiptTracker();
