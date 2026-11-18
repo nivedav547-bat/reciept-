@@ -1,6 +1,6 @@
 package com.receipttracker;
 
-import flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.FlatLightLaf;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

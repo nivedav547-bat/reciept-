@@ -123,8 +123,14 @@ public class ReceiptTrackerServer {
                 return;
             }
 
-            String html = getIndexHtml();
-            byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
+            Path indexFile = resolveIndexPath();
+            byte[] bytes;
+            if (Files.exists(indexFile)) {
+                bytes = Files.readAllBytes(indexFile);
+            } else {
+                bytes = getIndexHtml().getBytes(StandardCharsets.UTF_8);
+            }
+
             exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
             exchange.getResponseHeaders().set("Cache-Control", "no-cache, no-store, must-revalidate");
             exchange.sendResponseHeaders(200, bytes.length);
@@ -132,6 +138,21 @@ public class ReceiptTrackerServer {
                 os.write(bytes);
             }
         }
+    }
+
+    public static Path resolveIndexPath() {
+        Path[] candidates = new Path[] {
+            Path.of("index.html"),
+            Path.of("c:/Users/NIVED/.gemini/antigravity/scratch/ReceiptTracker/index.html"),
+            Path.of("..", "index.html"),
+            Path.of(System.getProperty("user.dir"), "index.html")
+        };
+        for (Path p : candidates) {
+            if (Files.exists(p) && !Files.isDirectory(p)) {
+                return p.toAbsolutePath().normalize();
+            }
+        }
+        return Path.of("index.html");
     }
 
     /**
